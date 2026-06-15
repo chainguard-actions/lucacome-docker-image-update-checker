@@ -1,0 +1,41 @@
+name: Test basic usage - docker image update checker
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          base-image: alpine:3.18
+          image: nginx:alpine
+      - name: Assert needs-updating output is set
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          if [ -z "$NEEDS_UPDATING" ]; then
+            echo "FAIL: expected needs-updating output to be set (true or false)"
+            exit 1
+          fi
+          if [ "$NEEDS_UPDATING" != "true" ] && [ "$NEEDS_UPDATING" != "false" ]; then
+            echo "FAIL: expected needs-updating to be 'true' or 'false', got '$NEEDS_UPDATING'"
+            exit 1
+          fi
+          echo "PASS: needs-updating=$NEEDS_UPDATING"
+      - name: Assert needs-building output is set
+        env:
+          NEEDS_BUILDING: ${{ steps.action.outputs.needs-building }}
+        run: |
+          echo "needs-building: $NEEDS_BUILDING"
+          if [ -z "$NEEDS_BUILDING" ]; then
+            echo "FAIL: expected needs-building output to be set (true or false)"
+            exit 1
+          fi
+          if [ "$NEEDS_BUILDING" != "true" ] && [ "$NEEDS_BUILDING" != "false" ]; then
+            echo "FAIL: expected needs-building to be 'true' or 'false', got '$NEEDS_BUILDING'"
+            exit 1
+          fi
+          echo "PASS: needs-building=$NEEDS_BUILDING"

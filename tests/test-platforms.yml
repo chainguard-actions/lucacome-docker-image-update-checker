@@ -1,0 +1,38 @@
+name: Test platforms input - docker image update checker
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          base-image: debian:bullseye-slim
+          image: python:3.11-slim
+          platforms: linux/amd64
+      - name: Assert needs-updating output is set
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          if [ -z "$NEEDS_UPDATING" ]; then
+            echo "FAIL: expected needs-updating output to be set (true or false)"
+            exit 1
+          fi
+          if [ "$NEEDS_UPDATING" != "true" ] && [ "$NEEDS_UPDATING" != "false" ]; then
+            echo "FAIL: expected needs-updating to be 'true' or 'false', got '$NEEDS_UPDATING'"
+            exit 1
+          fi
+          echo "PASS: needs-updating=$NEEDS_UPDATING"
+      - name: Assert diff-json output is set
+        env:
+          DIFF_JSON: ${{ steps.action.outputs.diff-json }}
+        run: |
+          echo "diff-json: $DIFF_JSON"
+          if [ -z "$DIFF_JSON" ]; then
+            echo "FAIL: expected diff-json output to be set"
+            exit 1
+          fi
+          echo "PASS: diff-json is set"

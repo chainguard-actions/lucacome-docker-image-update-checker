@@ -1,0 +1,28 @@
+name: Test update check - different base and image
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          base-image: alpine:3.18
+          image: nginx:1.25
+          platforms: linux/amd64
+      - name: Assert needs-updating output is present and valid
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          if [ -z "$NEEDS_UPDATING" ]; then
+            echo "FAIL: needs-updating output is empty"
+            exit 1
+          fi
+          if [ "$NEEDS_UPDATING" != "true" ] && [ "$NEEDS_UPDATING" != "false" ]; then
+            echo "FAIL: needs-updating output is not 'true' or 'false', got: $NEEDS_UPDATING"
+            exit 1
+          fi
+          echo "PASS: needs-updating=$NEEDS_UPDATING"

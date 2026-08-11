@@ -10,6 +10,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 |---------|-----|-----------------|
 | v1.2.2 | [`v1.2.2`](https://github.com/chainguard-actions/lucacome-docker-image-update-checker/tree/v1.2.2) | — |
 | v3.1.0 | [`v3.1.0`](https://github.com/chainguard-actions/lucacome-docker-image-update-checker/tree/v3.1.0) | [`3233adf`](https://github.com/lucacome/docker-image-update-checker/commit/3233adf42bb1dddf92f18cf024a8e202dbeaa9b3) |
+| v3.1.1 | [`v3.1.1`](https://github.com/chainguard-actions/lucacome-docker-image-update-checker/tree/v3.1.1) | [`f97e2a3`](https://github.com/lucacome/docker-image-update-checker/commit/f97e2a3cdbf2d8f9788fb87081a76542645a4252) |
 
 ## Privacy
 

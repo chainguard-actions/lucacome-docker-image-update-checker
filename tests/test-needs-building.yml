@@ -1,0 +1,32 @@
+name: Test needs-building when image does not exist
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          base-image: alpine:latest
+          # Use a tag that is extremely unlikely to exist
+          image: alpine:this-tag-does-not-exist-xyzzy-12345
+          platforms: linux/amd64
+      - name: Assert needs-building is true for non-existent image
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+          NEEDS_BUILDING: ${{ steps.action.outputs.needs-building }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          echo "needs-building: $NEEDS_BUILDING"
+          if [ "$NEEDS_BUILDING" != "true" ]; then
+            echo "FAIL: expected needs-building to be 'true' for non-existent image, got '$NEEDS_BUILDING'"
+            exit 1
+          fi
+          # When image does not exist, needs-updating is also set to true per action logic
+          if [ "$NEEDS_UPDATING" != "true" ]; then
+            echo "FAIL: expected needs-updating to be 'true' when image does not exist, got '$NEEDS_UPDATING'"
+            exit 1
+          fi
+          echo "PASS"

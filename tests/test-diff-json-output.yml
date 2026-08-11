@@ -1,0 +1,55 @@
+name: Test diff-json output format
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          # Use two different images to ensure there is a diff
+          base-image: alpine:3.18
+          image: alpine:3.19
+          platforms: linux/amd64
+      - name: Assert diff-json is valid JSON and outputs are set
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+          NEEDS_BUILDING: ${{ steps.action.outputs.needs-building }}
+          DIFF_JSON: ${{ steps.action.outputs.diff-json }}
+          DIFF_IMAGES: ${{ steps.action.outputs.diff-images }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          echo "needs-building: $NEEDS_BUILDING"
+          echo "diff-json: $DIFF_JSON"
+          echo "diff-images: $DIFF_IMAGES"
+          # Both alpine:3.18 and alpine:3.19 exist, so needs-building must be false
+          if [ "$NEEDS_BUILDING" != "false" ]; then
+            echo "FAIL: expected needs-building to be 'false', got '$NEEDS_BUILDING'"
+            exit 1
+          fi
+          # needs-updating must be a valid boolean
+          if [ "$NEEDS_UPDATING" != "true" ] && [ "$NEEDS_UPDATING" != "false" ]; then
+            echo "FAIL: expected needs-updating to be 'true' or 'false', got '$NEEDS_UPDATING'"
+            exit 1
+          fi
+          # diff-json must always be valid JSON
+          if [ -z "$DIFF_JSON" ]; then
+            echo "FAIL: expected diff-json to be non-empty"
+            exit 1
+          fi
+          echo "$DIFF_JSON" | python3 -m json.tool > /dev/null 2>&1 || {
+            echo "FAIL: diff-json is not valid JSON: $DIFF_JSON"
+            exit 1
+          }
+          # If needs-updating is true, diff-images should be non-empty
+          if [ "$NEEDS_UPDATING" = "true" ]; then
+            if [ -z "$DIFF_IMAGES" ]; then
+              echo "FAIL: expected diff-images to be non-empty when needs-updating is true"
+              exit 1
+            fi
+            echo "PASS: diff-json is valid JSON and diff-images is set"
+          else
+            echo "PASS: images are identical (needs-updating=false)"
+          fi

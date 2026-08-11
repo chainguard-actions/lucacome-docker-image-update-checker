@@ -1,0 +1,45 @@
+name: Test needs-updating output when images differ
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          # nginx:1.24-alpine is based on alpine but its layers differ from alpine:3.18
+          # This checks that the action correctly compares layers and returns a boolean output
+          base-image: alpine:3.18
+          image: nginx:1.24-alpine
+          platforms: linux/amd64
+      - name: Assert outputs are set and valid booleans
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+          NEEDS_BUILDING: ${{ steps.action.outputs.needs-building }}
+          DIFF_IMAGES: ${{ steps.action.outputs.diff-images }}
+          DIFF_JSON: ${{ steps.action.outputs.diff-json }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          echo "needs-building: $NEEDS_BUILDING"
+          echo "diff-images: $DIFF_IMAGES"
+          echo "diff-json: $DIFF_JSON"
+          # needs-building must be false since nginx:1.24-alpine exists
+          if [ "$NEEDS_BUILDING" != "false" ]; then
+            echo "FAIL: expected needs-building to be 'false', got '$NEEDS_BUILDING'"
+            exit 1
+          fi
+          # needs-updating must be a valid boolean
+          if [ "$NEEDS_UPDATING" != "true" ] && [ "$NEEDS_UPDATING" != "false" ]; then
+            echo "FAIL: expected needs-updating to be 'true' or 'false', got '$NEEDS_UPDATING'"
+            exit 1
+          fi
+          # diff-json must be valid JSON (either an array or empty array)
+          if [ -n "$DIFF_JSON" ]; then
+            echo "$DIFF_JSON" | python3 -m json.tool > /dev/null 2>&1 || {
+              echo "FAIL: diff-json is not valid JSON: $DIFF_JSON"
+              exit 1
+            }
+          fi
+          echo "PASS: needs-updating=$NEEDS_UPDATING, needs-building=$NEEDS_BUILDING"

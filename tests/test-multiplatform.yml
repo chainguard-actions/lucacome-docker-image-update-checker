@@ -1,0 +1,40 @@
+name: Test multi-platform check
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          base-image: alpine:latest
+          image: alpine:latest
+          platforms: linux/amd64,linux/arm64
+      - name: Assert outputs are valid for multi-platform same-image check
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+          NEEDS_BUILDING: ${{ steps.action.outputs.needs-building }}
+          DIFF_JSON: ${{ steps.action.outputs.diff-json }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          echo "needs-building: $NEEDS_BUILDING"
+          echo "diff-json: $DIFF_JSON"
+          # Same image should not need updating
+          if [ "$NEEDS_UPDATING" != "false" ]; then
+            echo "FAIL: expected needs-updating to be 'false' for same image, got '$NEEDS_UPDATING'"
+            exit 1
+          fi
+          if [ "$NEEDS_BUILDING" != "false" ]; then
+            echo "FAIL: expected needs-building to be 'false' for existing image, got '$NEEDS_BUILDING'"
+            exit 1
+          fi
+          # diff-json should be a valid JSON array (empty since no diff)
+          if [ -n "$DIFF_JSON" ]; then
+            echo "$DIFF_JSON" | python3 -m json.tool > /dev/null 2>&1 || {
+              echo "FAIL: diff-json is not valid JSON: $DIFF_JSON"
+              exit 1
+            }
+          fi
+          echo "PASS"

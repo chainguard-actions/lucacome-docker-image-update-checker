@@ -1,0 +1,23 @@
+name: Create Draft Release Notes
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+jobs:
+  draft-release:
+    name: Create Draft Release
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+        - name: Checkout
+          uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        - name: Draft Release Notes
+          uses: lucacome/draft-release@5d29432a46bff6c122cd4b07a1fb94e1bb158d34 # v1.1.1
+          with:
+            minor-label: 'enhancement'
+            major-label: 'change'

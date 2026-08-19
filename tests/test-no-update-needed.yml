@@ -1,4 +1,4 @@
-name: Test basic usage - check if image needs updating
+name: Test no update needed - same image as base
 on:
   workflow_dispatch:
 jobs:
@@ -9,16 +9,16 @@ jobs:
       - id: action
         uses: .
         with:
-          base-image: nginx:1.25
-          image: nginx:1.25
+          base-image: alpine:3.18
+          image: alpine:3.18
           platforms: linux/amd64
-      - name: Assert output is a boolean
+      - name: Assert no update needed when image equals base
         env:
           NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
         run: |
           echo "needs-updating: $NEEDS_UPDATING"
-          if [ "$NEEDS_UPDATING" != "true" ] && [ "$NEEDS_UPDATING" != "false" ]; then
-            echo "FAIL: expected 'true' or 'false', got '$NEEDS_UPDATING'"
+          if [ "$NEEDS_UPDATING" != "false" ]; then
+            echo "FAIL: expected 'false' when image is same as base, got '$NEEDS_UPDATING'"
             exit 1
           fi
-          echo "PASS: output is a valid boolean: $NEEDS_UPDATING"
+          echo "PASS: correctly reports no update needed"

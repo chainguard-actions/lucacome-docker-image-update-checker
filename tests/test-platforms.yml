@@ -1,4 +1,4 @@
-name: Test basic usage - check if image needs updating
+name: Test custom platforms input
 on:
   workflow_dispatch:
 jobs:
@@ -9,10 +9,10 @@ jobs:
       - id: action
         uses: .
         with:
-          base-image: nginx:1.25
-          image: nginx:1.25
-          platforms: linux/amd64
-      - name: Assert output is a boolean
+          base-image: alpine:3.18
+          image: alpine:3.18
+          platforms: linux/amd64,linux/arm64
+      - name: Assert output is valid with multiple platforms
         env:
           NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
         run: |
@@ -21,4 +21,4 @@ jobs:
             echo "FAIL: expected 'true' or 'false', got '$NEEDS_UPDATING'"
             exit 1
           fi
-          echo "PASS: output is a valid boolean: $NEEDS_UPDATING"
+          echo "PASS: output is '$NEEDS_UPDATING' for multiple platforms"

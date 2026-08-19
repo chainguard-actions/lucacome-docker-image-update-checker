@@ -39,12 +39,12 @@ runs:
     - id: run-script
       env:
         TRACE: ${{ env.DEBUG == 'true' && '1' || '0' }}
-        base: ${{ inputs.base-image }}
-        image: ${{ inputs.image }}
-        platforms: ${{ inputs.platforms }}
+        BASE_IMAGE: ${{ inputs.base-image }}
+        IMAGE: ${{ inputs.image }}
+        PLATFORMS: ${{ inputs.platforms }}
         ACTION_PATH: ${{ github.action_path }}
       run: |
-        result=$(TRACE="$TRACE" base="$base" image="$image" platforms="$platforms" "$ACTION_PATH/docker.sh")
+        result=$(TRACE="$TRACE" base="$BASE_IMAGE" image="$IMAGE" platforms="$PLATFORMS" "$ACTION_PATH/docker.sh")
         safe=$(printf '%s' "$result" | tr -d '\n\r')
         echo "result=${safe}" >> "$GITHUB_OUTPUT"
       shell: bash

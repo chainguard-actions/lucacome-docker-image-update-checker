@@ -1,0 +1,219 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+      - v1
+  pull_request:
+
+env:
+  DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
+
+permissions: {}
+
+jobs:
+  #####################################
+  # Singe platform tests
+
+  test1:
+    name: Test Update Needed
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: library/nginx:1.21.0
+          image: nginx/nginx-ingress:2.1.0
+      - name: Get Test Output
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: echo "Workflow Docker Image $NEEDS_UPDATING"
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+  test2:
+    name: Test Update Not Needed
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.0
+          image: library/nginx:1.21.0
+      - name: Get Test Output
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: echo "Workflow Docker Image $NEEDS_UPDATING"
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  test3:
+    name: Test single platform
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: alpine:3.17.1
+          image: lucacome/alpine-amd64
+      - name: Get Test Output
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: echo "Workflow Docker Image $NEEDS_UPDATING"
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  test4:
+    name: Test Update Needed on ARM64
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.0
+          image: nginx/nginx-ingress:2.1.0
+          platforms: linux/arm64
+      - name: Get Test Output
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: echo "Workflow Docker Image $NEEDS_UPDATING"
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+  #####################################
+  # Test with multiple platforms
+
+  test5:
+    name: Test Update Needed on multiple platforms
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.0
+          image: nginx/nginx-ingress:2.1.0
+          platforms: linux/arm64,linux/amd64
+      - name: Get Test Output
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: echo "Workflow Docker Image $NEEDS_UPDATING"
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+  test6:
+    name: Test Update Not Needed on multiple platforms
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.0
+          image: library/nginx:1.21.0
+          platforms: linux/arm64,linux/amd64
+      - name: Get Test Output
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: echo "Workflow Docker Image $NEEDS_UPDATING"
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+  #####################################
+  # Test with platform variants
+
+  test7:
+    name: Test Update Needed on multiple platforms with variants
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: alpine:latest
+          image: golang:1.14.15-alpine3.13
+          platforms: linux/arm64/v8,linux/arm/v7,linux/amd64
+      - name: Get Test Output
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: echo "Workflow Docker Image $NEEDS_UPDATING"
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+  test8:
+    name: Test Update Not Needed on multiple platforms with variants
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: alpine:3.17.2
+          image: alpine:3.17.2
+          platforms: linux/arm64/v8,linux/arm/v7,linux/amd64
+      - name: Get Test Output
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: echo "Workflow Docker Image $NEEDS_UPDATING"
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi

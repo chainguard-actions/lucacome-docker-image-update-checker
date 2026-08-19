@@ -1,0 +1,23 @@
+name: Test same image - should not need updating
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          base-image: alpine:3.18
+          image: alpine:3.18
+      - name: Assert output is false when base and image are the same
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          if [ "$NEEDS_UPDATING" != "false" ]; then
+            echo "FAIL: expected 'false' when base and image are the same, got '$NEEDS_UPDATING'"
+            exit 1
+          fi
+          echo "PASS: output is 'false' as expected"

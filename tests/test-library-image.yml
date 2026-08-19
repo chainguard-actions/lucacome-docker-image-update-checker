@@ -1,0 +1,34 @@
+name: Test library image (short name without username)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          base-image: debian:bookworm-slim
+          image: debian:bookworm-slim
+          platforms: linux/amd64
+      - name: Assert output is a valid boolean for library image
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          if [ "$NEEDS_UPDATING" != "true" ] && [ "$NEEDS_UPDATING" != "false" ]; then
+            echo "FAIL: expected 'true' or 'false', got '$NEEDS_UPDATING'"
+            exit 1
+          fi
+          echo "PASS: library image check returned valid boolean: $NEEDS_UPDATING"
+      - name: Assert no update needed when same library image used
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          if [ "$NEEDS_UPDATING" != "false" ]; then
+            echo "FAIL: expected 'false' when image is same as base, got '$NEEDS_UPDATING'"
+            exit 1
+          fi
+          echo "PASS: correctly reports no update needed for library image"

@@ -1,0 +1,65 @@
+name: Test needs-update - image based on older base
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # nginx/nginx-ingress:2.1.0 is NOT based on nginx:1.21.0, so needs-updating=true
+      # This combination is used in the official test workflow
+      - id: action
+        uses: .
+        with:
+          base-image: library/nginx:1.21.0
+          image: nginx/nginx-ingress:2.1.0
+          platforms: linux/amd64
+
+      - name: Assert needs-updating is true
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          if [ "$NEEDS_UPDATING" != "true" ]; then
+            echo "FAIL: expected needs-updating=true but got '$NEEDS_UPDATING'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert needs-building is false (image exists)
+        env:
+          NEEDS_BUILDING: ${{ steps.action.outputs.needs-building }}
+        run: |
+          echo "needs-building: $NEEDS_BUILDING"
+          if [ "$NEEDS_BUILDING" != "false" ]; then
+            echo "FAIL: expected needs-building=false but got '$NEEDS_BUILDING'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert diff-images output is set
+        env:
+          DIFF_IMAGES: ${{ steps.action.outputs.diff-images }}
+        run: |
+          echo "diff-images: $DIFF_IMAGES"
+          if [ -z "$DIFF_IMAGES" ]; then
+            echo "FAIL: expected diff-images to be non-empty when images differ"
+            exit 1
+          fi
+          echo "PASS: diff-images is set to '$DIFF_IMAGES'"
+
+      - name: Assert diff-json output is valid JSON array with entries
+        env:
+          DIFF_JSON: ${{ steps.action.outputs.diff-json }}
+        run: |
+          echo "diff-json: $DIFF_JSON"
+          if [ -z "$DIFF_JSON" ] || [ "$DIFF_JSON" = "[]" ]; then
+            echo "FAIL: expected diff-json to be non-empty array when images differ"
+            exit 1
+          fi
+          echo "$DIFF_JSON" | python3 -m json.tool > /dev/null 2>&1 || {
+            echo "FAIL: diff-json is not valid JSON: $DIFF_JSON"
+            exit 1
+          }
+          echo "PASS: diff-json is valid JSON with entries"

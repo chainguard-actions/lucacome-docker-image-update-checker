@@ -1,0 +1,1178 @@
+name: Workflow Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.ref_name }}-test-workflow
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  #####################################
+  # Single platform tests
+
+  single-amd64-update-needed:
+    name: Single platform (amd64) — update needed (ubuntu runner)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: library/nginx:1.21.0
+          image: nginx/nginx-ingress:2.1.0
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-images
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          if [[ "$DIFF_IMAGES" != "linux/amd64" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-json
+        env:
+          DIFF_JSON: ${{ steps.test.outputs.diff-json }}
+        run: |
+          count=$(echo "$DIFF_JSON" | jq '. | length')
+          if [[ "$count" != "1" ]]; then
+            exit 1
+          fi
+
+  single-amd64-up-to-date:
+    name: Single platform (amd64) — up to date (macOS runner)
+    runs-on: macos-15
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.0
+          image: library/nginx:1.21.0
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  single-arch-image-up-to-date:
+    name: Single-arch image — up to date (Windows runner)
+    runs-on: windows-2025
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: alpine:3.17.1
+          image: lucacome/alpine-amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  single-arm64-update-needed:
+    name: Single platform (arm64) — update needed
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.0
+          image: nginx/nginx-ingress:2.1.0
+          platforms: linux/arm64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-images
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          if [[ "$DIFF_IMAGES" != "linux/arm64/v8" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-json
+        env:
+          DIFF_JSON: ${{ steps.test.outputs.diff-json }}
+        run: |
+          count=$(echo "$DIFF_JSON" | jq '. | length')
+          if [[ "$count" != "1" ]]; then
+            exit 1
+          fi
+
+  #####################################
+  # needs-building tests
+
+  image-does-not-exist:
+    name: Image does not exist — needs building
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.0
+          image: nginx:nonexistent
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-building=${{ steps.test.outputs.needs-building }})
+        env:
+          NEEDS_BUILDING: ${{ steps.test.outputs.needs-building }}
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          echo "Needs building: $NEEDS_BUILDING"
+          echo "Needs updating: $NEEDS_UPDATING"
+
+      - name: Check needs-building
+        env:
+          NEEDS_BUILDING: ${{ steps.test.outputs.needs-building }}
+        run: |
+          if [[ "$NEEDS_BUILDING" != "true" ]]; then
+            exit 1
+          fi
+
+      - name: Check needs-updating
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-images
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          if [[ "$DIFF_IMAGES" != "" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-json
+        env:
+          DIFF_JSON: ${{ steps.test.outputs.diff-json }}
+        run: |
+          if [[ "$DIFF_JSON" != "[]" ]]; then
+            exit 1
+          fi
+
+  #####################################
+  # GitLab Container Registry tests
+
+  gitlab-image-up-to-date:
+    name: GitLab image — up to date
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: alpine:3.18.0
+          image: registry.gitlab.com/gitlab-org/cluster-integration/helm-install-image:helm-3.11.3-kube-1.26.4-alpine-3.18.0
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  gitlab-image-update-needed:
+    name: GitLab image — update needed
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: alpine:3.18.0
+          image: registry.gitlab.com/gitlab-org/cluster-integration/helm-install-image:helm-3.11.3-kube-1.26.4-alpine-3.17.3
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-images
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          if [[ "$DIFF_IMAGES" != "linux/amd64" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-json
+        env:
+          DIFF_JSON: ${{ steps.test.outputs.diff-json }}
+        run: |
+          count=$(echo "$DIFF_JSON" | jq '. | length')
+          if [[ "$count" != "1" ]]; then
+            exit 1
+          fi
+
+  #####################################
+  # Quay.io tests
+
+  quay-image-up-to-date:
+    name: Quay.io image — up to date
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.6
+          image: quay.io/nginx/nginx-ingress:2.2.2
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  quay-image-update-needed:
+    name: Quay.io image — update needed
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.6
+          image: quay.io/nginx/nginx-ingress:2.1.2
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-images
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          if [[ "$DIFF_IMAGES" != "linux/amd64" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-json
+        env:
+          DIFF_JSON: ${{ steps.test.outputs.diff-json }}
+        run: |
+          count=$(echo "$DIFF_JSON" | jq '. | length')
+          if [[ "$count" != "1" ]]; then
+            exit 1
+          fi
+
+  quay-image-with-login-up-to-date:
+    name: Quay.io image with login — up to date
+    runs-on: ubuntu-24.04
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Login to Quay.io
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.6
+          image: quay.io/nginx/nginx-ingress:2.2.2
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  quay-image-with-login-update-needed:
+    name: Quay.io image with login — update needed
+    runs-on: ubuntu-24.04
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Login to Quay.io
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.6
+          image: quay.io/nginx/nginx-ingress:2.1.2
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-images
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          if [[ "$DIFF_IMAGES" != "linux/amd64" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-json
+        env:
+          DIFF_JSON: ${{ steps.test.outputs.diff-json }}
+        run: |
+          count=$(echo "$DIFF_JSON" | jq '. | length')
+          if [[ "$count" != "1" ]]; then
+            exit 1
+          fi
+
+  #####################################
+  # GCR tests
+
+  gcr-image-up-to-date:
+    name: GCR image — up to date
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: gcr.io/distroless/static:nonroot
+          image: gcr.io/distroless/static:nonroot
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  gcr-image-with-login-up-to-date:
+    name: GCR image with login — up to date
+    runs-on: ubuntu-24.04
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Login to GCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: gcr.io
+          username: _json_key
+          password: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: gcr.io/distroless/static:nonroot
+          image: gcr.io/distroless/static:nonroot
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  #####################################
+  # Amazon ECR tests
+
+  # ECR public registry has a very low rate limit for unauthenticated requests.
+
+  # ecr-public-image-up-to-date:
+  #   name: ECR Public image — up to date
+  #   runs-on: ubuntu-24.04
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+  #     - name: Test Action
+  #       id: test
+  #       uses: ./
+  #       with:
+  #         base-image: public.ecr.aws/nginx/nginx:1.21.6
+  #         image: public.ecr.aws/nginx/nginx-ingress:2.2.2
+  #         platforms: linux/amd64
+
+  #     - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+  #       env:
+  #         DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+  #       run: |
+  #         echo "Images: $DIFF_IMAGES"
+
+  #     - name: Check value
+  #       env:
+  #         NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+  #       run: |
+  #         if [[ "$NEEDS_UPDATING" != "false" ]]; then
+  #           exit 1
+  #         fi
+
+  # ecr-public-image-update-needed:
+  #   name: ECR Public image — update needed
+  #   runs-on: ubuntu-24.04
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+  #     - name: Test Action
+  #       id: test
+  #       uses: ./
+  #       with:
+  #         base-image: public.ecr.aws/nginx/nginx:1.21.6
+  #         image: public.ecr.aws/nginx/nginx-ingress:2.1.2
+  #         platforms: linux/amd64
+
+  #     - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+  #       env:
+  #         DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+  #       run: |
+  #         echo "Images: $DIFF_IMAGES"
+
+  #     - name: Check value
+  #       env:
+  #         NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+  #       run: |
+  #         if [[ "$NEEDS_UPDATING" != "true" ]]; then
+  #           exit 1
+  #         fi
+
+  #     - name: Check diff-images
+  #       env:
+  #         DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+  #       run: |
+  #         if [[ "$DIFF_IMAGES" != "linux/amd64" ]]; then
+  #           exit 1
+  #         fi
+
+  #     - name: Check diff-json
+  #       env:
+  #         DIFF_JSON: ${{ steps.test.outputs.diff-json }}
+  #       run: |
+  #         count=$(echo "$DIFF_JSON" | jq '. | length')
+  #         if [[ "$count" != "1" ]]; then
+  #           exit 1
+  #         fi
+
+  ecr-public-image-with-login-up-to-date:
+    name: ECR Public image with login — up to date
+    runs-on: ubuntu-24.04
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Login to Amazon ECR Public
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: public.ecr.aws
+          username: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ecr: true
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: public.ecr.aws/nginx/nginx:1.21.6
+          image: public.ecr.aws/nginx/nginx-ingress:2.2.2
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  ecr-public-image-with-login-update-needed:
+    name: ECR Public image with login — update needed
+    runs-on: ubuntu-24.04
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Login to Amazon ECR Public
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: public.ecr.aws
+          username: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ecr: true
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: public.ecr.aws/nginx/nginx:1.21.6
+          image: public.ecr.aws/nginx/nginx-ingress:2.1.2
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-images
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          if [[ "$DIFF_IMAGES" != "linux/amd64" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-json
+        env:
+          DIFF_JSON: ${{ steps.test.outputs.diff-json }}
+        run: |
+          count=$(echo "$DIFF_JSON" | jq '. | length')
+          if [[ "$count" != "1" ]]; then
+            exit 1
+          fi
+
+  #####################################
+  # Google Artifact Registry tests
+
+  gar-image-up-to-date:
+    name: GAR image — up to date
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: us-docker.pkg.dev/google-samples/containers/gke/hello-app:1.0
+          image: us-docker.pkg.dev/google-samples/containers/gke/hello-app:1.0
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  gar-image-update-needed:
+    name: GAR image — update needed
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: us-docker.pkg.dev/google-samples/containers/gke/hello-app:1.0
+          image: us-docker.pkg.dev/google-samples/containers/gke/hello-app:2.0
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-images
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          if [[ "$DIFF_IMAGES" != "linux/amd64" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-json
+        env:
+          DIFF_JSON: ${{ steps.test.outputs.diff-json }}
+        run: |
+          count=$(echo "$DIFF_JSON" | jq '. | length')
+          if [[ "$count" != "1" ]]; then
+            exit 1
+          fi
+
+  single-386-update-needed:
+    name: Single platform (386) — update needed
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: debian:stable-slim
+          image: lucacome/debian-386:13.0-slim
+          platforms: linux/386
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-images
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          if [[ "$DIFF_IMAGES" != "linux/386" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-json
+        env:
+          DIFF_JSON: ${{ steps.test.outputs.diff-json }}
+        run: |
+          count=$(echo "$DIFF_JSON" | jq '. | length')
+          if [[ "$count" != "1" ]]; then
+            exit 1
+          fi
+
+  #####################################
+  # Multiple platforms tests
+
+  multi-platform-update-needed:
+    name: Multiple platforms — update needed
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.0
+          image: nginx/nginx-ingress:2.1.0
+          platforms: linux/arm64, linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+  multi-platform-up-to-date:
+    name: Multiple platforms — up to date
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.0
+          image: library/nginx:1.21.0
+          platforms: linux/arm64,linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  all-platforms-up-to-date:
+    name: All platforms — up to date
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.0
+          image: library/nginx:1.21.0
+          platforms: all
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  all-platforms-update-needed:
+    name: All platforms (default) — update needed
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.21.0
+          image: nginx/nginx-ingress:2.1.0
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+  #####################################
+  # Platform variant tests
+
+  variants-with-login-update-needed:
+    name: Variants with login — update needed
+    runs-on: windows-2025
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Login to Docker Registry
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: alpine:latest
+          image: golang:1.14.15-alpine3.13
+          platforms: linux/arm64/v8,linux/arm/v7,linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+  variants-up-to-date:
+    name: Variants — up to date
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: alpine:3.17.2
+          image: alpine:3.17.2
+          platforms: |
+            linux/arm64/v8
+            linux/arm/v7
+            linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  #####################################
+  # GHCR tests
+
+  ghcr-image-up-to-date:
+    name: GHCR image — up to date
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.25.2-alpine
+          image: ghcr.io/nginxinc/nginx-gateway-fabric/nginx:1.0.0
+          platforms: linux/arm64,linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  ghcr-image-with-login-up-to-date:
+    name: GHCR image with login — up to date
+    runs-on: ubuntu-24.04
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: nginx:1.25.2-alpine
+          image: ghcr.io/nginxinc/nginx-gateway-fabric/nginx:1.0.0
+          platforms: linux/arm64,linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  ghcr-base-up-to-date:
+    name: GHCR base — up to date
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: ghcr.io/nginxinc/nginx-gateway-fabric/nginx:1.0.0
+          image: ghcr.io/nginxinc/nginx-gateway-fabric/nginx:1.0.0
+          platforms: linux/arm64,linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "false" ]]; then
+            exit 1
+          fi
+
+  ghcr-base-update-needed:
+    name: GHCR base — update needed
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test Action
+        id: test
+        uses: ./
+        with:
+          base-image: ghcr.io/nginxinc/nginx-gateway-fabric/nginx:1.0.0
+          image: nginx:1.21.0
+          platforms: linux/amd64
+
+      - name: Get Test Output (needs-updating=${{ steps.test.outputs.needs-updating }})
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          echo "Images: $DIFF_IMAGES"
+
+      - name: Check value
+        env:
+          NEEDS_UPDATING: ${{ steps.test.outputs.needs-updating }}
+        run: |
+          if [[ "$NEEDS_UPDATING" != "true" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-images
+        env:
+          DIFF_IMAGES: ${{ steps.test.outputs.diff-images }}
+        run: |
+          if [[ "$DIFF_IMAGES" != "linux/amd64" ]]; then
+            exit 1
+          fi
+
+      - name: Check diff-json
+        env:
+          DIFF_JSON: ${{ steps.test.outputs.diff-json }}
+        run: |
+          count=$(echo "$DIFF_JSON" | jq '. | length')
+          if [[ "$count" != "1" ]]; then
+            exit 1
+          fi

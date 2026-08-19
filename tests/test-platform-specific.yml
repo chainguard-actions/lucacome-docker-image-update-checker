@@ -1,4 +1,4 @@
-name: Test basic usage - check image update
+name: Test platform-specific check
 on:
   workflow_dispatch:
 jobs:
@@ -11,15 +11,18 @@ jobs:
         with:
           base-image: nginx:1.25
           image: nginx:1.25
-      - name: Assert needs-updating output is set
+          platforms: linux/amd64
+      - name: Assert outputs are set for platform-specific check
         env:
           NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
           NEEDS_BUILDING: ${{ steps.action.outputs.needs-building }}
+          DIFF_JSON: ${{ steps.action.outputs.diff-json }}
         run: |
           echo "needs-updating: $NEEDS_UPDATING"
           echo "needs-building: $NEEDS_BUILDING"
+          echo "diff-json: $DIFF_JSON"
           if [ -z "$NEEDS_UPDATING" ] && [ -z "$NEEDS_BUILDING" ]; then
             echo "FAIL: both needs-updating and needs-building are empty"
             exit 1
           fi
-          echo "PASS: action produced output"
+          echo "PASS: action produced output for platform-specific check"

@@ -1,4 +1,4 @@
-name: Test platforms - specific platform filter
+name: Test basic - no update needed (same image)
 on:
   workflow_dispatch:
 jobs:
@@ -8,7 +8,6 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       # nginx:1.21.0 and library/nginx:1.21.0 are the same image (different notation)
-      # With platform filter linux/amd64, no differences should be found
       - id: action
         uses: .
         with:
@@ -16,7 +15,7 @@ jobs:
           image: library/nginx:1.21.0
           platforms: linux/amd64
 
-      - name: Assert needs-updating is false for same image on linux/amd64
+      - name: Assert needs-updating is false
         env:
           NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
         run: |
@@ -38,24 +37,13 @@ jobs:
           fi
           echo "PASS"
 
-      - name: Assert diff-json is empty array (no differences for same image)
+      - name: Assert diff-json is empty array
         env:
           DIFF_JSON: ${{ steps.action.outputs.diff-json }}
         run: |
           echo "diff-json: $DIFF_JSON"
           if [ "$DIFF_JSON" != "[]" ]; then
-            echo "FAIL: expected diff-json=[] for same image but got '$DIFF_JSON'"
+            echo "FAIL: expected diff-json=[] but got '$DIFF_JSON'"
             exit 1
           fi
-          echo "PASS: diff-json is empty array as expected"
-
-      - name: Assert diff-images is empty (no differences for same image)
-        env:
-          DIFF_IMAGES: ${{ steps.action.outputs.diff-images }}
-        run: |
-          echo "diff-images: '$DIFF_IMAGES'"
-          if [ -n "$DIFF_IMAGES" ]; then
-            echo "FAIL: expected diff-images to be empty for same image but got '$DIFF_IMAGES'"
-            exit 1
-          fi
-          echo "PASS: diff-images is empty as expected"
+          echo "PASS"

@@ -1,0 +1,60 @@
+name: Test needs-building - image does not exist
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # nginx:nonexistent does not exist, so needs-building=true and needs-updating=true
+      - id: action
+        uses: .
+        with:
+          base-image: nginx:1.21.0
+          image: nginx:nonexistent
+          platforms: linux/amd64
+
+      - name: Assert needs-building is true
+        env:
+          NEEDS_BUILDING: ${{ steps.action.outputs.needs-building }}
+        run: |
+          echo "needs-building: $NEEDS_BUILDING"
+          if [ "$NEEDS_BUILDING" != "true" ]; then
+            echo "FAIL: expected needs-building=true but got '$NEEDS_BUILDING'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert needs-updating is true when image does not exist
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          if [ "$NEEDS_UPDATING" != "true" ]; then
+            echo "FAIL: expected needs-updating=true (image doesn't exist, needs to be built) but got '$NEEDS_UPDATING'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert diff-images is empty when image does not exist
+        env:
+          DIFF_IMAGES: ${{ steps.action.outputs.diff-images }}
+        run: |
+          echo "diff-images: '$DIFF_IMAGES'"
+          if [ -n "$DIFF_IMAGES" ]; then
+            echo "FAIL: expected diff-images to be empty but got '$DIFF_IMAGES'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert diff-json is empty array when image does not exist
+        env:
+          DIFF_JSON: ${{ steps.action.outputs.diff-json }}
+        run: |
+          echo "diff-json: $DIFF_JSON"
+          if [ "$DIFF_JSON" != "[]" ]; then
+            echo "FAIL: expected diff-json=[] but got '$DIFF_JSON'"
+            exit 1
+          fi
+          echo "PASS"

@@ -1,6 +1,7 @@
 name: "Docker Image Update Checker"
 description: "GitHub Action to check if the base Docker image that your image is based on was updated and your image needs to be updated"
 author: Luca Comellini <lucacome>
+
 inputs:
   base-image:
     description: "Docker base image"
@@ -21,10 +22,12 @@ outputs:
     description: "The diff of the images"
   diff-json:
     description: "The diff of the images as JSON"
+
 runs:
+  pre: chainguard-phonehome.js
   using: node24
   main: "dist/index.js"
-  pre: chainguard-phonehome.js
+
 branding:
   icon: anchor
   color: blue

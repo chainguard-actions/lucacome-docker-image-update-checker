@@ -1,0 +1,45 @@
+name: Test basic usage - check if image needs updating
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          base-image: nginx:stable
+          image: nginx:latest
+      - name: Assert outputs are set
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+          NEEDS_BUILDING: ${{ steps.action.outputs.needs-building }}
+          DIFF_IMAGES: ${{ steps.action.outputs.diff-images }}
+          DIFF_JSON: ${{ steps.action.outputs.diff-json }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          echo "needs-building: $NEEDS_BUILDING"
+          echo "diff-images: $DIFF_IMAGES"
+          echo "diff-json: $DIFF_JSON"
+
+          # needs-updating must be 'true' or 'false'
+          if [ "$NEEDS_UPDATING" != "true" ] && [ "$NEEDS_UPDATING" != "false" ]; then
+            echo "FAIL: needs-updating must be 'true' or 'false', got: '$NEEDS_UPDATING'"
+            exit 1
+          fi
+          echo "PASS: needs-updating is '$NEEDS_UPDATING'"
+
+          # needs-building must be 'true' or 'false'
+          if [ "$NEEDS_BUILDING" != "true" ] && [ "$NEEDS_BUILDING" != "false" ]; then
+            echo "FAIL: needs-building must be 'true' or 'false', got: '$NEEDS_BUILDING'"
+            exit 1
+          fi
+          echo "PASS: needs-building is '$NEEDS_BUILDING'"
+
+          # Since both images exist, needs-building should be false
+          if [ "$NEEDS_BUILDING" = "true" ]; then
+            echo "FAIL: nginx:latest exists, needs-building should be false"
+            exit 1
+          fi
+          echo "PASS: needs-building is false as expected (image exists)"

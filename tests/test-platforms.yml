@@ -1,0 +1,37 @@
+name: Test platforms input - specific platform check
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          base-image: alpine:3.18
+          image: alpine:3.18
+          platforms: linux/amd64
+      - name: Assert same image does not need updating
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+          NEEDS_BUILDING: ${{ steps.action.outputs.needs-building }}
+          DIFF_JSON: ${{ steps.action.outputs.diff-json }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          echo "needs-building: $NEEDS_BUILDING"
+          echo "diff-json: $DIFF_JSON"
+
+          # Same image used as both base and image — should not need updating
+          if [ "$NEEDS_UPDATING" != "false" ]; then
+            echo "FAIL: expected needs-updating=false when base and image are identical, got: '$NEEDS_UPDATING'"
+            exit 1
+          fi
+          echo "PASS: needs-updating is false as expected"
+
+          # The image exists, so needs-building should be false
+          if [ "$NEEDS_BUILDING" != "false" ]; then
+            echo "FAIL: expected needs-building=false for existing image, got: '$NEEDS_BUILDING'"
+            exit 1
+          fi
+          echo "PASS: needs-building is false as expected"

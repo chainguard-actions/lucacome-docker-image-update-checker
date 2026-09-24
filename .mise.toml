@@ -1,0 +1,42 @@
+[tools]
+"github:kjanat/actionlint" = "1.17.0"
+"npm:eslint" = "10.11.0"
+"pipx:codespell" = "2.4.3"
+editorconfig-checker = "4.0.2"
+gitleaks = "8.30.1"
+hk = "2.1.0"
+markdownlint-cli2 = "0.23.3"
+pkl = "0.32.1"
+prettier = "3.9.9"
+yamllint = "1.38.0"
+
+[tasks.install]
+alias = "i"
+description = "Install dependencies"
+run = "yarn install"
+
+[tasks.build]
+alias = "b"
+description = "Build the project"
+run = "yarn run build"
+
+[tasks.lint]
+alias = "l"
+description = "Lint the codebase"
+run = "hk check --all"
+
+[tasks.format]
+alias = "fmt"
+description = "Format the codebase"
+run = "hk fix --all"
+
+[tasks.postlint]
+description = "Run post-lint checks"
+run = "git diff --exit-code"
+
+[settings]
+idiomatic_version_file_enable_tools = ["node", "yarn"]
+experimental = true
+
+[deps.yarn]
+auto = true

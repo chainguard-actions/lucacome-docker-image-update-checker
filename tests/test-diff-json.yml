@@ -1,0 +1,46 @@
+name: Test diff-json output format
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          base-image: ubuntu:20.04
+          image: ubuntu:22.04
+          platforms: linux/amd64
+      - name: Assert diff-json is valid JSON when images differ
+        env:
+          NEEDS_UPDATING: ${{ steps.action.outputs.needs-updating }}
+          DIFF_JSON: ${{ steps.action.outputs.diff-json }}
+          DIFF_IMAGES: ${{ steps.action.outputs.diff-images }}
+        run: |
+          echo "needs-updating: $NEEDS_UPDATING"
+          echo "diff-json: $DIFF_JSON"
+          echo "diff-images: $DIFF_IMAGES"
+
+          # needs-updating must be a boolean string
+          if [ "$NEEDS_UPDATING" != "true" ] && [ "$NEEDS_UPDATING" != "false" ]; then
+            echo "FAIL: needs-updating must be 'true' or 'false', got: '$NEEDS_UPDATING'"
+            exit 1
+          fi
+          echo "PASS: needs-updating is '$NEEDS_UPDATING'"
+
+          # If needs-updating is true, diff-json should be non-empty and valid JSON
+          if [ "$NEEDS_UPDATING" = "true" ]; then
+            if [ -z "$DIFF_JSON" ]; then
+              echo "FAIL: diff-json is empty but needs-updating is true"
+              exit 1
+            fi
+            # Validate it's parseable JSON using python3
+            if ! echo "$DIFF_JSON" | python3 -c "import sys, json; json.load(sys.stdin)" 2>/dev/null; then
+              echo "FAIL: diff-json is not valid JSON: $DIFF_JSON"
+              exit 1
+            fi
+            echo "PASS: diff-json is valid JSON"
+          else
+            echo "PASS: images are identical or up-to-date, no diff expected"
+          fi

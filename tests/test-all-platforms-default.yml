@@ -1,0 +1,33 @@
+name: Test default platforms (all) up to date
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - id: action
+        uses: .
+        with:
+          base-image: nginx:1.21.0
+          image: docker.io/library/nginx:1.21.0
+      - name: Assert needs-updating is false
+        env:
+          ACTUAL: ${{ steps.action.outputs.needs-updating }}
+          JSON: ${{ steps.action.outputs.diff-json }}
+          IMAGES: ${{ steps.action.outputs.diff-images }}
+        run: |
+          echo "needs-updating: $ACTUAL"
+          echo "diff-images: '$IMAGES'"
+          echo "diff-json: $JSON"
+          if [ "$ACTUAL" != "false" ]; then
+            echo "FAIL: expected 'false'"
+            exit 1
+          fi
+          if [ -n "$IMAGES" ] || [ "$JSON" != "[]" ]; then
+            echo "FAIL: expected no diffs"
+            exit 1
+          fi
+          echo "PASS"

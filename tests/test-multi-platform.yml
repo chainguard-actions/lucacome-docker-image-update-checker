@@ -1,0 +1,52 @@
+name: Test multiple platforms update needed
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - id: action
+        uses: .
+        with:
+          base-image: nginx:1.21.0
+          image: nginx/nginx-ingress:2.1.0
+          platforms: linux/amd64,linux/arm64
+      - name: Assert needs-updating is true
+        env:
+          ACTUAL: ${{ steps.action.outputs.needs-updating }}
+        run: |
+          echo "actual: $ACTUAL"
+          if [ "$ACTUAL" != "true" ]; then
+            echo "FAIL: expected 'true'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert diff-images contains amd64 and arm64
+        env:
+          ACTUAL: ${{ steps.action.outputs.diff-images }}
+        run: |
+          echo "actual: $ACTUAL"
+          case ",$ACTUAL," in
+            *,linux/amd64,*) ;;
+            *) echo "FAIL: linux/amd64 missing"; exit 1 ;;
+          esac
+          case ",$ACTUAL" in
+            *,linux/arm64*) ;;
+            *) echo "FAIL: linux/arm64 missing"; exit 1 ;;
+          esac
+          echo "PASS"
+      - name: Assert diff-json has two entries
+        env:
+          DIFF_JSON: ${{ steps.action.outputs.diff-json }}
+        run: |
+          echo "diff-json: $DIFF_JSON"
+          node -e '
+            const d = JSON.parse(process.env.DIFF_JSON);
+            if (!Array.isArray(d) || d.length !== 2) { console.log("FAIL: expected 2 entries, got " + (d && d.length)); process.exit(1); }
+            const archs = d.map(x => x.architecture).sort().join(",");
+            if (archs !== "amd64,arm64") { console.log("FAIL: unexpected archs " + archs); process.exit(1); }
+            console.log("PASS");
+          '

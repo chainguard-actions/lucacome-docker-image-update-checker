@@ -1,0 +1,313 @@
+import {describe, it, expect} from '@jest/globals'
+import {findDiffImages, parseImageInput, ImageInput, getDiffs} from '../src/image-utils.js'
+import {ImageInfo, ImageMap} from '../src/registry.js'
+
+describe('findDiffImages', () => {
+  it('should return diff images when layers do not match', () => {
+    const set1: ImageMap = new Map<string, ImageInfo>([
+      [
+        'linux/amd64',
+        {
+          os: 'linux',
+          architecture: 'amd64',
+          digest: 'digest1',
+          layers: ['layer1', 'layer10', 'layer20', 'layer30'],
+        },
+      ],
+      [
+        'linux/arm64/v8',
+        {
+          os: 'linux',
+          architecture: 'arm64',
+          digest: 'digest2',
+          layers: ['layer1', 'layer2', 'layer3', 'layer4'],
+          variant: 'v8',
+        },
+      ],
+    ])
+
+    const set2: ImageMap = new Map<string, ImageInfo>([
+      [
+        'linux/amd64',
+        {
+          os: 'linux',
+          architecture: 'amd64',
+          digest: 'digest2',
+          layers: ['layer1', 'layer2', 'layer3', 'layer4'],
+        },
+      ],
+    ])
+
+    const result = findDiffImages(set1, set2)
+    expect(result).toEqual([
+      {
+        os: 'linux',
+        architecture: 'amd64',
+        digest: 'digest2',
+        layers: ['layer1', 'layer2', 'layer3', 'layer4'],
+      },
+    ])
+  })
+
+  it('should not return diff images when all layers from obj1 are in obj2', () => {
+    const set1: ImageMap = new Map<string, ImageInfo>([
+      [
+        'linux/arm64/v8',
+        {
+          os: 'linux',
+          architecture: 'arm64',
+          digest: 'digest1',
+          layers: ['layer1', 'layer2', 'layer3'],
+          variant: 'v8',
+        },
+      ],
+    ])
+
+    const set2: ImageMap = new Map<string, ImageInfo>([
+      [
+        'linux/arm64/v8',
+        {
+          os: 'linux',
+          architecture: 'arm64',
+          digest: 'digest2',
+          layers: ['layer1', 'layer2', 'layer3', 'layer4'],
+          variant: 'v8',
+        },
+      ],
+    ])
+
+    const result = findDiffImages(set1, set2)
+    expect(result).toEqual([])
+  })
+})
+
+describe('parseImageInput', () => {
+  it('should parse image string with default registry and tag', () => {
+    const imageString = 'nginx'
+    const expectedResult: ImageInput = {
+      registry: 'docker.io',
+      image: 'library/nginx',
+      tag: 'latest',
+    }
+
+    const result = parseImageInput(imageString)
+    expect(result).toEqual(expectedResult)
+  })
+
+  it('should parse image string with custom registry and default tag', () => {
+    const imageString = 'myregistry.example.com/nginx'
+    const expectedResult: ImageInput = {
+      registry: 'myregistry.example.com',
+      image: 'nginx',
+      tag: 'latest',
+    }
+
+    const result = parseImageInput(imageString)
+    expect(result).toEqual(expectedResult)
+  })
+
+  it('should parse image string with custom registry, organization and default tag', () => {
+    const imageString = 'myregistry.example.com/myorg/nginx'
+    const expectedResult: ImageInput = {
+      registry: 'myregistry.example.com',
+      image: 'myorg/nginx',
+      tag: 'latest',
+    }
+
+    const result = parseImageInput(imageString)
+    expect(result).toEqual(expectedResult)
+  })
+
+  it('should parse image string with custom registry, organization, and tag', () => {
+    const imageString = 'myregistry.example.com/myorg/nginx:1.0.0'
+    const expectedResult: ImageInput = {
+      registry: 'myregistry.example.com',
+      image: 'myorg/nginx',
+      tag: '1.0.0',
+    }
+
+    const result = parseImageInput(imageString)
+    expect(result).toEqual(expectedResult)
+  })
+
+  it('should parse image string with default registry, organization, and custom tag', () => {
+    const imageString = 'myorg/nginx:1.0.0'
+    const expectedResult: ImageInput = {
+      registry: 'docker.io',
+      image: 'myorg/nginx',
+      tag: '1.0.0',
+    }
+
+    const result = parseImageInput(imageString)
+    expect(result).toEqual(expectedResult)
+  })
+
+  it('should parse image string with default registry and custom tag', () => {
+    const imageString = 'nginx:1.0.0'
+    const expectedResult: ImageInput = {
+      registry: 'docker.io',
+      image: 'library/nginx',
+      tag: '1.0.0',
+    }
+
+    const result = parseImageInput(imageString)
+    expect(result).toEqual(expectedResult)
+  })
+
+  it('should parse image string with host:port registry and no tag', () => {
+    const imageString = 'localhost:5000/myorg/myimage'
+    const expectedResult: ImageInput = {
+      registry: 'localhost:5000',
+      image: 'myorg/myimage',
+      tag: 'latest',
+    }
+
+    const result = parseImageInput(imageString)
+    expect(result).toEqual(expectedResult)
+  })
+
+  it('should parse image string with host:port registry and tag', () => {
+    const imageString = 'localhost:5000/myorg/myimage:1.2.3'
+    const expectedResult: ImageInput = {
+      registry: 'localhost:5000',
+      image: 'myorg/myimage',
+      tag: '1.2.3',
+    }
+
+    const result = parseImageInput(imageString)
+    expect(result).toEqual(expectedResult)
+  })
+
+  it('should parse image string with host:port registry, single-component image, and tag', () => {
+    const imageString = 'registry.example.com:5000/myimage:latest'
+    const expectedResult: ImageInput = {
+      registry: 'registry.example.com:5000',
+      image: 'myimage',
+      tag: 'latest',
+    }
+
+    const result = parseImageInput(imageString)
+    expect(result).toEqual(expectedResult)
+  })
+
+  it('should parse three-component Docker Hub image as org/repo/subimage on docker.io', () => {
+    const imageString = 'myorg/myrepo/subimage:tag'
+    const expectedResult: ImageInput = {
+      registry: 'docker.io',
+      image: 'myorg/myrepo/subimage',
+      tag: 'tag',
+    }
+
+    const result = parseImageInput(imageString)
+    expect(result).toEqual(expectedResult)
+  })
+})
+
+const image1: ImageMap = new Map([
+  [
+    'linux/amd64',
+    {
+      os: 'linux',
+      architecture: 'amd64',
+      digest: '123',
+      layers: ['layer1', 'layer20', 'layer30'],
+    },
+  ],
+  [
+    'linux/arm64/v8',
+    {
+      os: 'linux',
+      architecture: 'arm64',
+      variant: 'v8',
+      digest: '456',
+      layers: ['layer1', 'layer20', 'layer30'],
+    },
+  ],
+])
+
+const image2: ImageMap = new Map([
+  [
+    'linux/amd64',
+    {
+      os: 'linux',
+      architecture: 'amd64',
+      digest: '789',
+      layers: ['layer1', 'layer2', 'layer3', 'layer4'],
+    },
+  ],
+  [
+    'linux/arm64/v8',
+    {
+      os: 'linux',
+      architecture: 'arm64',
+      variant: 'v8',
+      digest: '101112',
+      layers: ['layer1', 'layer2', 'layer3', 'layer4'],
+    },
+  ],
+])
+
+describe('getDiffs', () => {
+  it('should return all diff images when platforms is "all"', () => {
+    const expectedResult: ImageInfo[] = [
+      {
+        os: 'linux',
+        architecture: 'amd64',
+        digest: '789',
+        layers: ['layer1', 'layer2', 'layer3', 'layer4'],
+      },
+      {
+        os: 'linux',
+        architecture: 'arm64',
+        variant: 'v8',
+        digest: '101112',
+        layers: ['layer1', 'layer2', 'layer3', 'layer4'],
+      },
+    ]
+
+    const result = getDiffs(['all'], image1, image2)
+    expect(result).toEqual(expectedResult)
+  })
+
+  it('should return diff images for specified platform', () => {
+    const expectedResult: ImageInfo[] = [
+      {
+        os: 'linux',
+        architecture: 'amd64',
+        digest: '789',
+        layers: ['layer1', 'layer2', 'layer3', 'layer4'],
+      },
+    ]
+
+    const result = getDiffs(['linux/amd64'], image1, image2)
+    expect(result).toEqual(expectedResult)
+  })
+
+  it('should return diff images for multiple specified platforms', () => {
+    const expectedResult: ImageInfo[] = [
+      {
+        os: 'linux',
+        architecture: 'amd64',
+        digest: '789',
+        layers: ['layer1', 'layer2', 'layer3', 'layer4'],
+      },
+      {
+        os: 'linux',
+        architecture: 'arm64',
+        variant: 'v8',
+        digest: '101112',
+        layers: ['layer1', 'layer2', 'layer3', 'layer4'],
+      },
+    ]
+
+    const result = getDiffs(['linux/amd64', 'linux/arm64'], image1, image2)
+    expect(result).toEqual(expectedResult)
+  })
+
+  it('should return empty array when there are no diff images for specified platform', () => {
+    const expectedResult: ImageInfo[] = []
+
+    const result = getDiffs(['windows/amd64'], image1, image2)
+    expect(result).toEqual(expectedResult)
+  })
+})

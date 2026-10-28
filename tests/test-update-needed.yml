@@ -1,0 +1,58 @@
+name: Test update needed (single platform)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - id: action
+        uses: .
+        with:
+          base-image: library/nginx:1.21.0
+          image: nginx/nginx-ingress:2.1.0
+          platforms: linux/amd64
+      - name: Assert needs-updating is true
+        env:
+          ACTUAL: ${{ steps.action.outputs.needs-updating }}
+        run: |
+          echo "actual: $ACTUAL"
+          if [ "$ACTUAL" != "true" ]; then
+            echo "FAIL: expected 'true'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert needs-building is false
+        env:
+          ACTUAL: ${{ steps.action.outputs.needs-building }}
+        run: |
+          echo "actual: $ACTUAL"
+          if [ "$ACTUAL" != "false" ]; then
+            echo "FAIL: expected 'false'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert diff-images is linux/amd64
+        env:
+          ACTUAL: ${{ steps.action.outputs.diff-images }}
+        run: |
+          echo "actual: $ACTUAL"
+          if [ "$ACTUAL" != "linux/amd64" ]; then
+            echo "FAIL: expected 'linux/amd64'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert diff-json has one amd64 entry
+        env:
+          DIFF_JSON: ${{ steps.action.outputs.diff-json }}
+        run: |
+          echo "diff-json: $DIFF_JSON"
+          node -e '
+            const d = JSON.parse(process.env.DIFF_JSON);
+            if (!Array.isArray(d) || d.length !== 1) { console.log("FAIL: expected 1 entry"); process.exit(1); }
+            if (d[0].os !== "linux" || d[0].architecture !== "amd64") { console.log("FAIL: unexpected platform"); process.exit(1); }
+            if (!d[0].digest) { console.log("FAIL: missing digest"); process.exit(1); }
+            console.log("PASS");
+          '

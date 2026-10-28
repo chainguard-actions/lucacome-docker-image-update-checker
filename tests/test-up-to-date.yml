@@ -1,0 +1,56 @@
+name: Test up to date (single platform)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - id: action
+        uses: .
+        with:
+          base-image: nginx:1.21.0
+          image: library/nginx:1.21.0
+          platforms: linux/amd64
+      - name: Assert needs-updating is false
+        env:
+          ACTUAL: ${{ steps.action.outputs.needs-updating }}
+        run: |
+          echo "actual: $ACTUAL"
+          if [ "$ACTUAL" != "false" ]; then
+            echo "FAIL: expected 'false'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert needs-building is false
+        env:
+          ACTUAL: ${{ steps.action.outputs.needs-building }}
+        run: |
+          echo "actual: $ACTUAL"
+          if [ "$ACTUAL" != "false" ]; then
+            echo "FAIL: expected 'false'"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert diff-images is empty
+        env:
+          ACTUAL: ${{ steps.action.outputs.diff-images }}
+        run: |
+          echo "actual: '$ACTUAL'"
+          if [ -n "$ACTUAL" ]; then
+            echo "FAIL: expected empty"
+            exit 1
+          fi
+          echo "PASS"
+      - name: Assert diff-json is empty array
+        env:
+          ACTUAL: ${{ steps.action.outputs.diff-json }}
+        run: |
+          echo "actual: $ACTUAL"
+          if [ "$ACTUAL" != "[]" ]; then
+            echo "FAIL: expected '[]'"
+            exit 1
+          fi
+          echo "PASS"
